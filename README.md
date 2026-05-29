@@ -2,16 +2,56 @@
 
 A [Claude Agent Skill](https://docs.anthropic.com/en/docs/agents-and-tools/agent-skills) for customer success workflows: inbox triage, email Q&A, action-card follow-up, Jira escalation, and Slack updates to internal account channels.
 
-## What it does
+Two-part architecture: a **scheduled Claude agent** scans Gmail and posts alert cards to Slack; the **Slack Claude app** lets CSMs follow up in-thread.
 
-| Mode | Use when |
-|------|----------|
-| **Inbox probe** | Scan inbox, triage threads, surface what needs attention today |
-| **Email Q&A** | Research a customer question, product behavior, or talking points |
-| **Action review** | Follow up on one thread or action card |
-| **Escalate** | Create Jira tickets or post to Slack account channels (with confirmation) |
+## End-to-end workflow
 
-Scheduled runs can also post alerts to a designated channel after inbox probe completes.
+```mermaid
+flowchart TD
+    %% ── PART A: Scheduled Agent ──
+    A1(["⏰ Scheduler\nclaude.ai task"]) --> A2["🤖 Claude Agent\ncsm-radar skill"]
+    A2 --> A3["📬 Gmail MCP\nread-only scan"]
+    A3 --> A4{"Exclude\nfilter?"}
+    A4 -- skip --> A3
+    A4 -- keep --> A5["🔍 Triage & Research\ninbox-probe / doc-lookup"]
+    A5 --> A6["💬 Post to #claude-alerts\nwith @claude footer tag"]
+
+    %% ── HANDOFF ──
+    A6 --> B1
+
+    %% ── PART B: Slack Claude App ──
+    B1(["👤 CSM reads card\n@mentions Claude"]) --> B2["⚡ Slack Claude App\ncsm-radar skill"]
+    B2 --> B3{"What does\nCSM need?"}
+    B3 -- "Answer question" --> B4["📖 Email Q&A\nemail-qna.md"]
+    B3 -- "Follow up" --> B5["🔄 Action Review\naction-review.md"]
+    B3 -- "Escalate" --> B6["🎫 Create Jira ticket\n+ confirmation card"]
+    B3 -- "Notify team" --> B7["📢 Post to\naccount channel"]
+```
+
+### Part A — Scheduled agent (Claude.ai → Slack)
+
+| Step | What happens |
+|------|--------------|
+| Scheduler | claude.ai fires the task, injects `<scheduled-task>` tag |
+| Claude Agent | Loads csm-radar skill, picks **Inbox probe** mode |
+| Gmail MCP | Scans inbox read-only; applies exclude filters |
+| Exclude filter | Skips: Jira update emails, AIRIS quota alerts, Finance invoices, meeting invites |
+| Triage & Research | Runs `inbox-probe.md` → `doc-lookup.md` → `client-ids.md` |
+| Post to Slack | Formats via `alerts-post.md`, posts to `#claude-alerts` with `@claude` footer tag |
+
+### Part B — Slack Claude app (CSM → Claude)
+
+| Step | What happens |
+|------|--------------|
+| CSM @mentions Claude | Triggered by `@claude` in `#claude-alerts` or an account channel |
+| Slack Claude App | Loads csm-radar skill, detects Slack context via footer tag |
+| Mode picker | Branches based on what the CSM is asking |
+
+| Mode | Use when | Reference |
+|------|----------|-----------|
+| **Email Q&A** | Answer a customer question, product behavior, talking points | `email-qna.md` |
+| **Action review** | Follow up on one thread or action card | `action-review.md` |
+| **Escalate** | Create Jira ticket or post to account channel (confirmation first) | `escalate.md` |
 
 ## Install
 
@@ -47,17 +87,19 @@ Before use, edit these placeholders in `references/profile.md`:
 
 Add client IDs and Slack channel mappings in `references/client-ids.md` and `references/slack-channels.md`.
 
-## Hard rules (built into the skill)
+## Rules & constraints
 
-- Gmail is **read-only** — no sending or scheduling email
-- Technical/product claims must go through `references/doc-lookup.md`
-- No customer-ready email drafts unless explicitly requested
-- Jira and Slack actions require a **confirmation card** first
-- Reply drafts must use `threadId` so they stay in the original thread
+- **Gmail is read-only** — no sending or scheduling email
+- **Slack context** — source of truth is the Slack post only; no access to the original Gmail thread
+- **Doc lookup** — technical/product claims must go through `references/doc-lookup.md`
+- **No drafts by default** — no customer-ready email unless explicitly requested
+- **Confirmation required** — no Jira ticket or Slack post without a confirmation card first
+- **Reply threading** — drafts must use `threadId` so they stay in the original thread
+- **Jira language** — all tickets must be written in English
 
-## Repository layout
+## Repository
 
-This repo is the **public, vendor-neutral** version of the skill. Internal URLs, client names, and channel IDs live in the reference files you configure locally — they are not committed with real customer data.
+This is the **public, vendor-neutral** version of the skill. Internal URLs, client names, and channel IDs live in the reference files you configure locally — they are not committed with real customer data.
 
 ## License
 
