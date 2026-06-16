@@ -7,7 +7,9 @@ Jira ticket creation, and Slack escalation — so your time goes to the customer
 copying context between tools.
 
 ## Demo
+
 https://github.com/user-attachments/assets/7b197d86-95c1-4aad-9b23-59044c6ed5d8
+
 ---
 
 ## How it works
