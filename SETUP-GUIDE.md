@@ -51,19 +51,32 @@ The Slack bot skips doc lookup and relies on web search alone — slower and les
 
 ---
 
-## The card tracker — CSM Radar's memory
+## The card tracker — Sova's memory
 
-Every session (claude.ai, Cowork, Slack bot) starts with zero memory. What makes CSM Radar feel
+Every session (claude.ai, Cowork, Slack bot) starts with zero memory. What makes Sova feel
 continuous is one file: the **card tracker** (`card-tracker-*.md`) stored in your Google Drive.
+Sova reads the latest one at the start of every run and writes a fresh timestamped copy at the
+end.
 
-**Every run loads the tracker first.** Whenever action cards are generated or refreshed, the
-tracker is **written back immediately** — you do not need to escalate for the tracker to update.
+Each card holds what Sova worked out about a thread: the triage verdict (`digest`, `urgency`,
+`next_steps`), its current state (`needs_reply` / `awaiting_client`, plus an `internal_status`
+like `ts_investigation`, `engineering_review`, or `pm_evaluation`), and the message count at last
+check.
+
+Once you escalate, the card also records the full handoff trail — who it went to (`handoff_to`,
+e.g. Daniel Jang (TS), Engineering, PM Team), the Jira ticket it became (`handoff_jira_url`), the
+account Slack channel it was posted to (`handoff_slack_channel`), the Slack thread permalink for
+that post (`handoff_slack_thread`), and when the handoff happened (`handoff_at`). So a card never
+forgets where it was sent or what it turned into.
+
+On the next run Sova diffs each thread's live message count against the stored one: unchanged
+threads are rebuilt from the tracker with no re-triage, changed ones get a delta card, and
+resolved cards are archived. The handoff trail keeps the loop coherent — an already-escalated
+thread shows its existing Jira and Slack links instead of being escalated again, and any
+`awaiting_client` card with live internal work still surfaces in `#claude-alerts` (via
+`internal_status`) so the team stays informed while the reply is on hold.
 
 **Don't hand-edit it. Don't delete the folder. It's the agent's brain.**
-
-When using the Claude Slack bot, always start with `/csm-radar` — the bot has no memory of
-your previous sessions, so that command tells it to load the skill and fetch the tracker.
-
 
 
 
@@ -83,9 +96,10 @@ cards from the tracker and uses web search only.
 ---
 config:
   flowchart:
-    padding: 20
-    nodeSpacing: 35
-    rankSpacing: 45
+    padding: 16
+    nodeSpacing: 48
+    rankSpacing: 52
+    diagramPadding: 12
 ---
 flowchart LR
     subgraph triggers["Triggers"]
@@ -95,30 +109,39 @@ flowchart LR
         T2["claude.ai"]
     end
 
+    subgraph storage["GDrive · persistent memory"]
+        GD[("Card tracker")]
+    end
+
     subgraph session["Claude thread · session only"]
         direction LR
-        S1["① Load tracker"] --> S2["② Triage"] --> S2b["③ Research<br/>doc lookup + web search"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
+        S1["① Load tracker"] --> S2["② Triage<br/>← Gmail"] --> S2b["③ Research<br/>docs + web"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
+    end
+
+    subgraph outputs["Outputs"]
+        direction TB
+        P1["Post #alerts"]
+        P2["Draft · Gmail"]
+        P3["Escalate · Jira · Slack"]
     end
 
     T3 --> S1
     T1 & T2 --> S1
 
-    T1 -.->|grep · local docs| S2b
-    T2 -.->|RAG · Project knowledge| S2b
+    T1 -.->|grep| S2b
+    T2 -.->|RAG| S2b
 
-    S5 -->|scheduled| P1["Post #alerts"]
-    S5 -->|manual| P2["Draft email"]
-    S5 -->|manual| P3["Escalate"]
+    GD -->|read| S1
+    S4 -->|write| GD
 
-    P2 --> G1["Gmail · drafts"]
-    P3 --> G2["Jira · tickets"]
-    P3 --> G3["Slack · channels"]
-
-    S1 <--> GD[("GDrive · tracker")]
-    S4 --> GD
-    S2 -.->|read inbox| G0["Gmail · inbox"]
+    S5 -->|scheduled| P1
+    S5 -->|manual| P2
+    S5 -->|manual| P3
 
     style session fill:none,stroke:#888,stroke-width:2px
+    style storage fill:none,stroke:#666,stroke-width:1px
+    style outputs fill:none,stroke:none
+    style GD fill:#d4e8fc,stroke:#333
 ```
 
 *③ Research* applies to **Cowork** (grep) and **claude.ai** (RAG) only. The **Slack bot** skips
