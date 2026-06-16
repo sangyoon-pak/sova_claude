@@ -119,32 +119,6 @@ CSM Radar has two entry paths. Scheduled runs always post a Slack summary; manua
 
 ![CSM Radar flow — scheduled run vs manual use](docs/images/image1.png)
 
-```mermaid
-flowchart TB
-    subgraph scheduled["SCHEDULED RUN — Cowork / Claude Desktop only"]
-        S1["Cowork — runs on schedule"] --> S2["Load card tracker"]
-        S2 --> S3["Inbox Probe"]
-        S3 --> S4["Action cards"]
-        S4 --> S5["Escalate (if needed)<br/>Jira ticket · Slack post"]
-        S5 --> S6["Write card tracker back"]
-        S6 --> S7["Post summary to #alerts<br/>(always on scheduled runs)"]
-    end
-
-    subgraph manual["MANUAL USE — claude.ai web or Slack @mention + /csm-radar"]
-        M1a["claude.ai (web)"] --> M2["Load card tracker"]
-        M1b["Slack + /csm-radar"] --> M2
-        M2 --> M3a["Inbox Probe"]
-        M2 --> M3b["Email Q&A"]
-        M2 --> M3c["Action Review"]
-        M3a --> M4["Action cards"]
-        M3b --> M4
-        M3c --> M4
-        M4 --> M5["Escalate (if needed)<br/>Jira ticket · Slack post · Mark resolved"]
-        M5 --> M6["Write card tracker back"]
-        M6 --> M7["Done — no automatic Slack post"]
-    end
-```
-
 ---
 
 ## Before you start

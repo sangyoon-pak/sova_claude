@@ -8,9 +8,9 @@ copying context between tools.
 
 ## Demo
 
-<video src="sova.mp4" controls width="100%"></video>
+<video src="https://github.com/sangyoon-pak/sova_claude/raw/main/sova.mp4" controls width="100%"></video>
 
-*[Download video](./sova.mp4)* if the player does not appear in your viewer.
+*[Download video](https://github.com/sangyoon-pak/sova_claude/raw/main/sova.mp4)* if the player does not appear in your viewer.
 
 ---
 
