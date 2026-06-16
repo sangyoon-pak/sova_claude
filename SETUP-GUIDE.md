@@ -61,55 +61,8 @@ tracker is **written back immediately** — you do not need to escalate for the 
 When using the Claude Slack bot, always start with `/csm-radar` — the bot has no memory of
 your previous sessions, so that command tells it to load the skill and fetch the tracker.
 
----
 
-## Workflow
 
-The step-by-step paths for scheduled vs manual runs. Manual runs can also **draft an outbound
-email** in Gmail (saved as a draft for you to review — never sent automatically).
-
-```mermaid
----
-config:
-  flowchart:
-    padding: 8
-    nodeSpacing: 12
-    rankSpacing: 18
----
-flowchart LR
-    subgraph S["Scheduled · Cowork"]
-        direction TB
-        S1[Schedule] --> S2[Load tracker]
-        S2 --> S3[Inbox Probe]
-        S3 --> S4[Cards]
-        S4 --> S5[Write tracker]
-        S5 --> S6[Post #alerts]
-    end
-
-    subgraph M["Manual · web / Slack"]
-        direction TB
-        M1[Start] --> M2[Load tracker]
-        M2 --> M3[Choose mode]
-        M3 --> M4[Cards]
-        M4 --> M5[Draft email]
-        M4 --> M6[Escalate]
-        M5 --> M7[Write tracker]
-        M6 --> M7
-        M7 --> M8[Done]
-    end
-
-    style S2 fill:#d4e8fc,stroke:#333
-    style S5 fill:#d4e8fc,stroke:#333
-    style S6 fill:#e8d4f8,stroke:#7b1fa2
-    style M2 fill:#d4e8fc,stroke:#333
-    style M5 fill:#fff9c4,stroke:#f9a825,stroke-dasharray:5 5
-    style M6 fill:#fff9c4,stroke:#f9a825,stroke-dasharray:5 5
-    style M7 fill:#d4e8fc,stroke:#333
-```
-
-*Scheduled:* Inbox Probe only — new cards or refresh from tracker. *Manual modes:* Inbox Probe · Email Q&A · Action Review. *Draft / Escalate:* Gmail draft (never sent) · Jira · Slack · mark resolved.
-
----
 
 ## Architecture
 
