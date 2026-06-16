@@ -1,106 +1,108 @@
 # CSM Radar
 
-A [Claude Agent Skill](https://docs.anthropic.com/en/docs/agents-and-tools/agent-skills) for customer success workflows: inbox triage, email Q&A, action-card follow-up, Jira escalation, and Slack updates to internal account channels.
+**A Claude-powered inbox copilot for enterprise Customer Success Managers.**
 
-Two-part architecture: a **scheduled Claude agent** scans Gmail and posts alert cards to Slack; the **Slack Claude app** lets CSMs follow up in-thread.
+Automates the repetitive mechanics of CSM work — inbox triage, customer-email research,
+Jira ticket creation, and Slack escalation — so your time goes to the customer, not to
+copying context between tools.
 
-## End-to-end workflow
+## Demo
 
-```mermaid
-flowchart TD
-    %% ── PART A: Scheduled Agent ──
-    A1(["⏰ Scheduler\nclaude.ai task"]) --> A2["🤖 Claude Agent\ncsm-radar skill"]
-    A2 --> A3["📬 Gmail MCP\nread-only scan"]
-    A3 --> A4{"Exclude\nfilter?"}
-    A4 -- skip --> A3
-    A4 -- keep --> A5["🔍 Triage & Research\ninbox-probe / doc-lookup"]
-    A5 --> A6["💬 Post to #claude-alerts\nwith @claude footer tag"]
+<video src="sova.mp4" controls width="100%"></video>
 
-    %% ── HANDOFF ──
-    A6 --> B1
+*[Download video](./sova.mp4)* if the player does not appear in your viewer.
 
-    %% ── PART B: Slack Claude App ──
-    B1(["👤 CSM reads card\n@mentions Claude"]) --> B2["⚡ Slack Claude App\ncsm-radar skill"]
-    B2 --> B3{"What does\nCSM need?"}
-    B3 -- "Answer question" --> B4["📖 Email Q&A\nemail-qna.md"]
-    B3 -- "Follow up" --> B5["🔄 Action Review\naction-review.md"]
-    B3 -- "Escalate" --> B6["🎫 Create Jira ticket\n+ confirmation card"]
-    B3 -- "Notify team" --> B7["📢 Post to\naccount channel"]
+---
+
+## How it works
+
+You install one skill (`sova-setup`) and talk to Claude. The wizard configures and packages
+a second skill (`csm-radar`) tailored to your company, Jira setup, and accounts. You then
+install the configured skill and use it every day.
+
+```
+You (once)           You (daily)
+────────────         ────────────────────────────────────────────
+Install              "Scan my inbox"  →  Action cards
+sova-setup      →   "How do I answer this?" →  Talking points + draft
+     ↓               "Create a Jira ticket" →  Preview → Confirm → Done
+Claude produces      Scheduled run  →  Slack summary in #alerts-channel
+csm-radar.zip
+     ↓
+Install
+csm-radar
 ```
 
-### Part A — Scheduled agent (Claude.ai → Slack)
+---
 
-| Step | What happens |
-|------|--------------|
-| Scheduler | claude.ai fires the task, injects `<scheduled-task>` tag |
-| Claude Agent | Loads csm-radar skill, picks **Inbox probe** mode |
-| Gmail MCP | Scans inbox read-only; applies exclude filters |
-| Exclude filter | Skips: Jira update emails, AIRIS quota alerts, Finance invoices, meeting invites |
-| Triage & Research | Runs `inbox-probe.md` → `doc-lookup.md` → `client-ids.md` |
-| Post to Slack | Formats via `alerts-post.md`, posts to `#claude-alerts` with `@claude` footer tag |
+## Modes
 
-### Part B — Slack Claude app (CSM → Claude)
+| Mode | How to trigger | What happens |
+|---|---|---|
+| **Inbox Probe** | "Scan my inbox" / scheduled | Reads Gmail (read-only), triages threads, renders interactive action cards |
+| **Email Q&A** | Paste an email + "how do I answer this?" | Researches your product docs + web, returns grounded answer + optional draft |
+| **Action Review** | "Follow up on the Acme thread" | Restores thread history from memory, refreshes the card |
+| **Escalate** | Card button or direct ask | Builds Jira ticket or Slack post → preview → you confirm → done |
 
-| Step | What happens |
-|------|--------------|
-| CSM @mentions Claude | Triggered by `@claude` in `#claude-alerts` or an account channel |
-| Slack Claude App | Loads csm-radar skill, detects Slack context via footer tag |
-| Mode picker | Branches based on what the CSM is asking |
+All Jira and Slack actions are **preview-then-confirm**. Nothing is filed silently.
 
-| Mode | Use when | Reference |
-|------|----------|-----------|
-| **Email Q&A** | Answer a customer question, product behavior, talking points | `email-qna.md` |
-| **Action review** | Follow up on one thread or action card | `action-review.md` |
-| **Escalate** | Create Jira ticket or post to account channel (confirmation first) | `escalate.md` |
+---
 
-## Install
+## Setup
 
-Copy this folder into your Claude skills directory (or add it as a project skill), then customize `references/profile.md` with your vendor, products, doc URLs, and team rules.
+Read **[SETUP-GUIDE.md](./SETUP-GUIDE.md)** for the full walkthrough.
+
+The short version:
+
+1. **Connect four connectors** in Claude (Settings → Connectors): Gmail · Google Drive · Slack · Jira (Atlassian).
+2. **Install `sova-setup`** as a Claude skill (Settings → Skills → upload the `sova-setup/` folder).
+3. **Start a chat** and say: `"Hey Claude — I just added the sova-setup skill."`
+4. Claude walks you through everything and hands back a configured `csm-radar` zip.
+5. **Install `csm-radar`**, create a Claude Project, add your product docs, and try: `"Scan my inbox."`
+
+---
+
+## Repo structure
 
 ```
 csm-radar/
-├── SKILL.md              # Skill entry point and routing
 ├── README.md
-├── assets/
-│   └── ticket-template.md
-└── references/
-    ├── profile.md        # Start here — company-specific config
-    ├── inbox-probe.md
-    ├── email-qna.md
-    ├── action-review.md
-    ├── escalate.md
-    ├── alerts-post.md
-    ├── card-widget.md
-    ├── doc-lookup.md
-    ├── client-ids.md
-    └── slack-channels.md
+├── SETUP-GUIDE.md          ← read this before setup
+└── sova-setup/             ← install this skill first; it builds csm-radar for you
+    ├── SKILL.md            ← wizard entry point
+    ├── references/
+    │   ├── prerequisites.md      ← what to prepare before running the wizard
+    │   ├── field-reference.md    ← what values the wizard collects and how
+    │   └── fill-and-package.md   ← how the wizard fills placeholders and packages the skill
+    └── assets/
+        └── csm-radar-template/   ← the template the wizard configures ({{PLACEHOLDERS}})
+            ├── SKILL.md.tmpl
+            ├── references/       ← inbox-probe, escalate, card-tracker, etc.
+            └── assets/
+                └── ticket-template.md
 ```
 
-## Customization
+Users never touch the template files directly — the wizard handles everything.
 
-Before use, edit these placeholders in `references/profile.md`:
+---
 
-- Company and product names
-- Official documentation base URLs
-- Account spreadsheet links (if used)
-- Team triage rules (e.g. alerts to skip)
+## Requirements
 
-Add client IDs and Slack channel mappings in `references/client-ids.md` and `references/slack-channels.md`.
+- **Claude Team or Pro plan** (for token budget on inbox-probe runs)
+- **Claude Desktop** (for scheduled runs via Cowork)
+- **Four MCP connectors:** Gmail · Google Drive · Slack · Jira (Atlassian)
+- **Chrome connector** on Claude Desktop (for browser-based Slack posting on scheduled runs)
 
-## Rules & constraints
+---
 
-- **Gmail is read-only** — no sending or scheduling email
-- **Slack context** — source of truth is the Slack post only; no access to the original Gmail thread
-- **Doc lookup** — technical/product claims must go through `references/doc-lookup.md`
-- **No drafts by default** — no customer-ready email unless explicitly requested
-- **Confirmation required** — no Jira ticket or Slack post without a confirmation card first
-- **Reply threading** — drafts must use `threadId` so they stay in the original thread
-- **Jira language** — all tickets must be written in English
+## Privacy
 
-## Repository
+- Gmail is **read-only** — CSM Radar never sends or schedules email.
+- All Jira and Slack actions require your explicit confirmation.
+- Your data stays in your own connected accounts.
 
-This is the **public, vendor-neutral** version of the skill. Internal URLs, client names, and channel IDs live in the reference files you configure locally — they are not committed with real customer data.
+---
 
 ## License
 
-Add your license here if you plan to share this publicly.
+MIT — see [LICENSE](./LICENSE).
