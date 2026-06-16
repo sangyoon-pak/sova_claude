@@ -7,11 +7,7 @@ Jira ticket creation, and Slack escalation — so your time goes to the customer
 copying context between tools.
 
 ## Demo
-
-<video src="https://github.com/sangyoon-pak/sova_claude/raw/main/sova.mp4" controls width="100%"></video>
-
-*[Download video](https://github.com/sangyoon-pak/sova_claude/raw/main/sova.mp4)* if the player does not appear in your viewer.
-
+https://github.com/user-attachments/assets/7b197d86-95c1-4aad-9b23-59044c6ed5d8
 ---
 
 ## How it works
