@@ -33,15 +33,18 @@ CSM Radar grounds every product or technical claim in your own documentation bef
 of it as giving the agent a NotebookLM-style knowledge base plus the tools to draft replies,
 raise Jira tickets, and post to account Slack channels.
 
-The research backbone runs in two separate surfaces:
+The research backbone runs on **claude.ai** and **Cowork** during inbox triage and Q&A modes.
+The **Slack bot** does not triage or search docs — it looks up cards from the tracker and uses
+**web search** when product lookup is needed.
 
 | Surface | How docs are searched | Notes |
 |---|---|---|
-| **Claude Cowork** (Claude Desktop) | Keyword search (`grep`) over path-loaded files | Less efficient than RAG; keep filenames aligned with `references/doc-lookup.md` |
-| **Claude Chat** (claude.ai web) | Embedding-based RAG over Project knowledge | Same model as NotebookLM — faster, more accurate retrieval |
+| **Claude Cowork** (Claude Desktop) | Keyword search (`grep`) over path-loaded files | Scheduled Inbox Probe; less efficient than RAG |
+| **Claude Chat** (claude.ai web) | Embedding-based RAG over Project knowledge | Inbox Probe · Email Q&A · Action Review |
+| **Slack bot** | No doc access | Reads the Slack card post + tracker; web search only |
 
-On both surfaces, CSM Radar also runs a targeted **web search** after doc lookup to confirm currency.
-Without uploaded docs it falls back to web search only — slower and less precise.
+On claude.ai and Cowork, CSM Radar also runs a targeted **web search** after doc lookup to confirm currency.
+The Slack bot skips doc lookup and relies on web search alone — slower and less precise for product claims.
 
 > **Important:** Cowork and claude.ai web do **not** share Project knowledge or memory. Upload
 > your product docs to **both** Projects separately, and update each when docs change.
@@ -70,6 +73,10 @@ your previous sessions, so that command tells it to load the skill and fetch the
 **GDrive** holds the card tracker (persistent across runs). Gmail, Slack, and Jira are only
 touched at the points shown below.
 
+Between **triage** and **cards**, **Cowork** and **claude.ai** run doc lookup (grep or RAG)
+plus a web search to confirm findings. The **Slack bot** does not use this step — it looks up
+cards from the tracker and uses web search only.
+
 ### Core path
 
 ```mermaid
@@ -83,17 +90,21 @@ config:
 flowchart LR
     subgraph triggers["Triggers"]
         direction TB
+        T3["Slack"]
         T1["Cowork"]
         T2["claude.ai"]
-        T3["Slack"]
     end
 
     subgraph session["Claude thread · session only"]
         direction LR
-        S1["① Load tracker"] --> S2["② Triage"] --> S3["③ Cards"] --> S4["④ Write tracker"] --> S5{"⑤ Next step"}
+        S1["① Load tracker"] --> S2["② Triage"] --> S2b["③ Research<br/>doc lookup + web search"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
     end
 
-    T1 & T2 & T3 --> S1
+    T3 --> S1
+    T1 & T2 --> S1
+
+    T1 -.->|grep · local docs| S2b
+    T2 -.->|RAG · Project knowledge| S2b
 
     S5 -->|scheduled| P1["Post #alerts"]
     S5 -->|manual| P2["Draft email"]
@@ -110,25 +121,31 @@ flowchart LR
     style session fill:none,stroke:#888,stroke-width:2px
 ```
 
+*③ Research* applies to **Cowork** (grep) and **claude.ai** (RAG) only. The **Slack bot** skips
+triage and doc lookup — it reads the Slack post, looks up the card tracker, and uses web search
+when product lookup is needed.
+
 ### Scheduled vs manual
 
-| Step | Scheduled (Cowork) | Manual (web / Slack) |
-|---|---|---|
-| ① Load tracker | Read card tracker from GDrive | Same |
-| ② Triage | Inbox Probe — new cards or refresh from tracker | Inbox Probe · Email Q&A · Action Review |
-| ③ Cards | Rendered in Claude thread only | Same |
-| ④ Write tracker | Written to GDrive when cards update | Same |
-| ⑤ Next step | Post summary to `#alerts` (always) | Draft outbound email and/or Escalate (optional) |
+| Step | Scheduled (Cowork) | Manual · claude.ai | Manual · Slack bot |
+|---|---|---|---|
+| ① Load tracker | Read card tracker from GDrive | Same | Lookup card from tracker |
+| ② Triage | Inbox Probe — new cards or refresh from tracker | Inbox Probe · Email Q&A · Action Review | **Skipped** — Slack post is the source |
+| ③ Research | grep over local docs → web search | RAG over Project knowledge → web search | Web search only (no doc access) |
+| ④ Cards | Rendered in Claude thread only | Same | Respond from Slack context |
+| ⑤ Write tracker | Written to GDrive when cards update | Same | Written on escalate |
+| ⑥ Next step | Post summary to `#alerts` (always) | Draft email and/or Escalate (optional) | Respond · Escalate |
 
 ### Connector touchpoints
 
 | System | When | What happens |
 |---|---|---|
+| **Product docs** | Step ③ · Cowork / claude.ai | grep (Cowork) or RAG (claude.ai), then web search |
 | **GDrive** | Start + after cards | Load tracker; write back on card update |
 | **Gmail** | Triage + manual draft | Read inbox threads; create draft replies (`threadId`, never sent) |
 | **Slack** | Scheduled end + manual escalate | `#alerts` summary (scheduled); account-channel posts (after confirm) |
 | **Jira** | Manual escalate only | Create/update tickets after you confirm preview |
-| **Claude thread** | Steps ①–⑤ | Cards, previews, and conversation — not persisted except via tracker |
+| **Claude thread** | Steps ①–⑥ | Cards and previews — session only |
 
 **Also required:** Chrome connector on Claude Desktop (posts scheduled alerts via browser).
 
