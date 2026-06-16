@@ -52,7 +52,9 @@ Without uploaded docs it falls back to web search only — slower and less preci
 
 Every session (claude.ai, Cowork, Slack bot) starts with zero memory. What makes CSM Radar feel
 continuous is one file: the **card tracker** (`card-tracker-*.md`) stored in your Google Drive.
-It reads this file at the start of every run and writes it back at the end.
+
+**Every run loads the tracker first.** Whenever action cards are generated or refreshed, the
+tracker is **written back immediately** — you do not need to escalate for the tracker to update.
 
 **Don't hand-edit it. Don't delete the folder. It's the agent's brain.**
 
@@ -61,63 +63,121 @@ your previous sessions, so that command tells it to load the skill and fetch the
 
 ---
 
-## Architecture
+## Workflow
 
-```
-Gmail (read-only)
-     ↓
-Inbox Probe / Action Review
-     ↓
-Action Cards (rendered via show_widget)
-     ↓
-[Escalate: Jira ticket + Slack draft — after your confirmation]
-     ↓
-Card Tracker (Google Drive) ← updated after every run
-     ↓
-Alerts post → #alerts-channel (scheduled runs only, via browser agent)
-```
+The step-by-step paths for scheduled vs manual runs. Manual runs can also **draft an outbound
+email** in Gmail (saved as a draft for you to review — never sent automatically).
 
 ```mermaid
-flowchart TB
-    subgraph connectors["Connectors"]
-        Gmail["Gmail (read-only)"]
-        Drive["Google Drive"]
-        Slack["Slack"]
-        Jira["Jira (Atlassian)"]
-        Chrome["Chrome (Desktop only)"]
+---
+config:
+  flowchart:
+    padding: 8
+    nodeSpacing: 12
+    rankSpacing: 18
+---
+flowchart LR
+    subgraph S["Scheduled · Cowork"]
+        direction TB
+        S1[Schedule] --> S2[Load tracker]
+        S2 --> S3[Inbox Probe]
+        S3 --> S4[Cards]
+        S4 --> S5[Write tracker]
+        S5 --> S6[Post #alerts]
     end
 
-    subgraph modes["CSM Radar modes"]
-        Probe["Inbox Probe"]
-        QnA["Email Q&A"]
-        Review["Action Review"]
-        Escalate["Escalate"]
+    subgraph M["Manual · web / Slack"]
+        direction TB
+        M1[Start] --> M2[Load tracker]
+        M2 --> M3[Choose mode]
+        M3 --> M4[Cards]
+        M4 --> M5[Draft email]
+        M4 --> M6[Escalate]
+        M5 --> M7[Write tracker]
+        M6 --> M7
+        M7 --> M8[Done]
     end
 
-    Gmail --> Probe
-    Gmail --> Review
-    Probe --> Cards["Action cards"]
-    QnA --> Cards
-    Review --> Cards
-    Cards --> Escalate
-    Escalate --> Jira
-    Escalate --> Slack
-    Probe --> Tracker["Card tracker (Drive)"]
-    Review --> Tracker
-    Escalate --> Tracker
-    Tracker --> Drive
-    Probe --> Alerts["#alerts summary"]
-    Alerts --> Chrome
-    Chrome --> Slack
+    style S2 fill:#d4e8fc,stroke:#333
+    style S5 fill:#d4e8fc,stroke:#333
+    style S6 fill:#e8d4f8,stroke:#7b1fa2
+    style M2 fill:#d4e8fc,stroke:#333
+    style M5 fill:#fff9c4,stroke:#f9a825,stroke-dasharray:5 5
+    style M6 fill:#fff9c4,stroke:#f9a825,stroke-dasharray:5 5
+    style M7 fill:#d4e8fc,stroke:#333
 ```
+
+*Scheduled:* Inbox Probe only — new cards or refresh from tracker. *Manual modes:* Inbox Probe · Email Q&A · Action Review. *Draft / Escalate:* Gmail draft (never sent) · Jira · Slack · mark resolved.
 
 ---
 
-## The flow — scheduled vs manual
+## Architecture
 
-CSM Radar has two entry paths. Scheduled runs always post a Slack summary; manual runs do not.
+**Claude thread** holds action cards and previews (session only — no cross-session memory).
+**GDrive** holds the card tracker (persistent across runs). Gmail, Slack, and Jira are only
+touched at the points shown below.
 
-![CSM Radar flow — scheduled run vs manual use](docs/images/image1.png)
+### Core path
+
+```mermaid
+---
+config:
+  flowchart:
+    padding: 20
+    nodeSpacing: 35
+    rankSpacing: 45
+---
+flowchart LR
+    subgraph triggers["Triggers"]
+        direction TB
+        T1["Cowork"]
+        T2["claude.ai"]
+        T3["Slack"]
+    end
+
+    subgraph session["Claude thread · session only"]
+        direction LR
+        S1["① Load tracker"] --> S2["② Triage"] --> S3["③ Cards"] --> S4["④ Write tracker"] --> S5{"⑤ Next step"}
+    end
+
+    T1 & T2 & T3 --> S1
+
+    S5 -->|scheduled| P1["Post #alerts"]
+    S5 -->|manual| P2["Draft email"]
+    S5 -->|manual| P3["Escalate"]
+
+    P2 --> G1["Gmail · drafts"]
+    P3 --> G2["Jira · tickets"]
+    P3 --> G3["Slack · channels"]
+
+    S1 <--> GD[("GDrive · tracker")]
+    S4 --> GD
+    S2 -.->|read inbox| G0["Gmail · inbox"]
+
+    style session fill:none,stroke:#888,stroke-width:2px
+```
+
+### Scheduled vs manual
+
+| Step | Scheduled (Cowork) | Manual (web / Slack) |
+|---|---|---|
+| ① Load tracker | Read card tracker from GDrive | Same |
+| ② Triage | Inbox Probe — new cards or refresh from tracker | Inbox Probe · Email Q&A · Action Review |
+| ③ Cards | Rendered in Claude thread only | Same |
+| ④ Write tracker | Written to GDrive when cards update | Same |
+| ⑤ Next step | Post summary to `#alerts` (always) | Draft outbound email and/or Escalate (optional) |
+
+### Connector touchpoints
+
+| System | When | What happens |
+|---|---|---|
+| **GDrive** | Start + after cards | Load tracker; write back on card update |
+| **Gmail** | Triage + manual draft | Read inbox threads; create draft replies (`threadId`, never sent) |
+| **Slack** | Scheduled end + manual escalate | `#alerts` summary (scheduled); account-channel posts (after confirm) |
+| **Jira** | Manual escalate only | Create/update tickets after you confirm preview |
+| **Claude thread** | Steps ①–⑤ | Cards, previews, and conversation — not persisted except via tracker |
+
+**Also required:** Chrome connector on Claude Desktop (posts scheduled alerts via browser).
 
 ---
 
