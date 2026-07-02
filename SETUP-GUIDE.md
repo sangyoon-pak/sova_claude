@@ -92,15 +92,57 @@ cards from the tracker and uses web search only.
 
 ### Core path
 
-![CSM Radar core path — triggers, session flow, GDrive tracker, and outputs](docs/images/core-path.png)
+```mermaid
+---
+config:
+  flowchart:
+    padding: 16
+    nodeSpacing: 48
+    rankSpacing: 52
+    diagramPadding: 12
+---
+flowchart LR
+    subgraph triggers["Triggers"]
+        direction TB
+        T3["Slack"]
+        T1["Cowork"]
+        T2["claude.ai"]
+    end
 
-*To edit the diagram, change [`docs/core-path.mmd`](docs/core-path.mmd) and re-render:*
+    subgraph storage["GDrive · persistent memory"]
+        GD[("Card tracker")]
+    end
 
-```bash
-npx @mermaid-js/mermaid-cli -i docs/core-path.mmd -o docs/images/core-path.png -b white -w 1400
+    subgraph session["Claude thread · session only"]
+        direction LR
+        S1["① Load tracker"] --> S2["② Triage<br/>← Gmail"] --> S2b["③ Research<br/>docs + web"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
+    end
+
+    subgraph outputs["Outputs"]
+        direction TB
+        P1["Post #alerts"]
+        P2["Draft · Gmail"]
+        P3["Escalate · Jira · Slack"]
+    end
+
+    T3 --> S1
+    T1 & T2 --> S1
+
+    T1 -.->|grep| S2b
+    T2 -.->|RAG| S2b
+
+    GD -->|read| S1
+    S4 -->|write| GD
+
+    S5 -->|scheduled| P1
+    S5 -->|manual| P2
+    S5 -->|manual| P3
+
+    style session fill:none,stroke:#888,stroke-width:2px
+    style storage fill:none,stroke:#666,stroke-width:1px
+    style outputs fill:none,stroke:none
+    style GD fill:#d4e8fc,stroke:#333
 ```
-
-> **Note:** `Post to alerts` = your `#alerts` Slack channel.
 
 *③ Research* applies to **Cowork** (grep) and **claude.ai** (RAG) only. The **Slack bot** skips
 triage and doc lookup — it reads the Slack post, looks up the card tracker, and uses web search
