@@ -93,14 +93,7 @@ cards from the tracker and uses web search only.
 ### Core path
 
 ```mermaid
----
-config:
-  flowchart:
-    padding: 16
-    nodeSpacing: 48
-    rankSpacing: 52
-    diagramPadding: 12
----
+%%{init: {"flowchart": {"htmlLabels": true, "nodeSpacing": 48, "rankSpacing": 52, "padding": 16, "diagramPadding": 12}} }%%
 flowchart LR
     subgraph triggers["Triggers"]
         direction TB
@@ -115,18 +108,19 @@ flowchart LR
 
     subgraph session["Claude thread · session only"]
         direction LR
-        S1["① Load tracker"] --> S2["② Triage<br/>← Gmail"] --> S2b["③ Research<br/>docs + web"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
+        S1["① Load tracker"] --> S2["② Triage<br/>Gmail"] --> S2b["③ Research<br/>docs + web"] --> S3["④ Cards"] --> S4["⑤ Write tracker"] --> S5{"⑥ Next step"}
     end
 
     subgraph outputs["Outputs"]
         direction TB
-        P1["Post #alerts"]
+        P1["Post to alerts"]
         P2["Draft · Gmail"]
         P3["Escalate · Jira · Slack"]
     end
 
     T3 --> S1
-    T1 & T2 --> S1
+    T1 --> S1
+    T2 --> S1
 
     T1 -.->|grep| S2b
     T2 -.->|RAG| S2b
@@ -143,6 +137,8 @@ flowchart LR
     style outputs fill:none,stroke:none
     style GD fill:#d4e8fc,stroke:#333
 ```
+
+> **Note:** `Post to alerts` = your `#alerts` Slack channel. GitHub's Mermaid renderer treats `#` inside labels as a comment, so the channel name is spelled out in prose here and in the table below.
 
 *③ Research* applies to **Cowork** (grep) and **claude.ai** (RAG) only. The **Slack bot** skips
 triage and doc lookup — it reads the Slack post, looks up the card tracker, and uses web search
