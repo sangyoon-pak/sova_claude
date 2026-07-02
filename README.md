@@ -48,7 +48,7 @@ All Jira and Slack actions are **preview-then-confirm**. Nothing is filed silent
 
 ## Setup
 
-Read **[SETUP-GUIDE.md](./SETUP-GUIDE.md)** for the full walkthrough.
+Read **[SETUP-GUIDE.github.md](./SETUP-GUIDE.github.md)** for the full walkthrough.
 
 The short version:
 
@@ -65,7 +65,8 @@ The short version:
 ```
 csm-radar/
 ├── README.md
-├── SETUP-GUIDE.md          ← read this before setup
+├── SETUP-GUIDE.github.md   ← read this before setup (GitHub)
+│   SETUP-GUIDE.md          ← local only: live Mermaid diagram (gitignored)
 └── sova-setup/             ← install this skill first; it builds csm-radar for you
     ├── SKILL.md            ← wizard entry point
     ├── references/

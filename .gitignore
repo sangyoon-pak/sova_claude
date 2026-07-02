@@ -1,1 +1,4 @@
 .DS_Store
+
+# Local-only: live Mermaid diagram (edit here; GitHub uses SETUP-GUIDE.github.md)
+SETUP-GUIDE.md
